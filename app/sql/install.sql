@@ -252,3 +252,17 @@ CREATE TABLE `dnsmgr_sctask` (
   PRIMARY KEY (`id`),
   KEY `did` (`did`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+DROP TABLE IF EXISTS `dnsmgr_abrotate`;
+CREATE TABLE `dnsmgr_abrotate` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `did` int(11) unsigned NOT NULL COMMENT '对应 dnsmgr_domain.id',
+  `task_a_id` int(11) unsigned NOT NULL COMMENT 'A 槽容灾任务 ID (dnsmgr_dmtask.id)',
+  `task_b_id` int(11) unsigned NOT NULL COMMENT 'B 槽容灾任务 ID (dnsmgr_dmtask.id)',
+  `current_slot` char(1) NOT NULL DEFAULT 'A' COMMENT '下次轮换槽位：A/B',
+  `prefix` varchar(32) DEFAULT 'cs' COMMENT '随机主机前缀',
+  `fixed_rr` varchar(64) DEFAULT NULL COMMENT '固定二级域名主机记录，如 pay；轮换后将其 CNAME 指向最新随机域名',
+  `active` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
+  PRIMARY KEY (`id`),
+  KEY `did` (`did`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

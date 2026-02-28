@@ -190,3 +190,18 @@ CREATE TABLE IF NOT EXISTS `dnsmgr_sctask` (
 ALTER TABLE `dnsmgr_account`
 ADD COLUMN `config` text DEFAULT NULL,
 CHANGE COLUMN `ak` `name` varchar(255) NOT NULL;
+
+CREATE TABLE IF NOT EXISTS `dnsmgr_abrotate` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `did` int(11) unsigned NOT NULL,
+  `task_a_id` int(11) unsigned NOT NULL,
+  `task_b_id` int(11) unsigned NOT NULL,
+  `current_slot` char(1) NOT NULL DEFAULT 'A',
+  `prefix` varchar(32) DEFAULT 'cs',
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`),
+  KEY `did` (`did`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE `dnsmgr_abrotate`
+ADD COLUMN `fixed_rr` varchar(64) DEFAULT NULL COMMENT '固定二级域名主机记录，轮换后 CNAME 指向最新随机域名';

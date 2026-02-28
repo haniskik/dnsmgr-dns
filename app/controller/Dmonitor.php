@@ -263,4 +263,76 @@ class Dmonitor extends BaseController
         $run_state = $run_time ? (time() - strtotime($run_time) > 10 ? 0 : 1) : 0;
         return $run_state == 1 ? 'ok' : 'error';
     }
+
+    /**
+     * A/B 轮换配置列表
+     */
+    public function abrotate()
+    {
+        if (!checkPermission(2)) return $this->alert('error', '无权限');
+        return View::fetch();
+    }
+
+    /**
+     * A/B 轮换配置列表数据
+     */
+    public function abrotate_data()
+    {
+        if (!checkPermission(2)) return json(['total' => 0, 'rows' => []]);
+        $offset = input('post.offset/d', 0);
+        $limit = input('post.limit/d', 10);
+        $select = Db::name('abrotate')->alias('A')->join('domain B', 'A.did = B.id')
+            ->field('A.*,B.name domain');
+        $total = $select->count();
+        $list = Db::name('abrotate')->alias('A')->join('domain B', 'A.did = B.id')
+            ->field('A.*,B.name domain')
+            ->order('A.id', 'desc')
+            ->limit($offset, $limit)
+            ->select()
+            ->toArray();
+        foreach ($list as &$row) {
+            $row['fixed_domain'] = $row['fixed_rr'] !== '' && $row['fixed_rr'] !== null
+                ? $row['fixed_rr'] . '.' . $row['domain']
+                : '—';
+            $row['active_str'] = $row['active'] ? '启用' : '停用';
+        }
+        return json(['total' => $total, 'rows' => $list]);
+    }
+
+    /**
+     * A/B 轮换配置编辑页
+     */
+    public function abrotate_edit()
+    {
+        if (!checkPermission(2)) return $this->alert('error', '无权限');
+        $id = input('get.id/d');
+        $row = Db::name('abrotate')->alias('A')->join('domain B', 'A.did = B.id')
+            ->where('A.id', $id)
+            ->field('A.*,B.name domain')
+            ->find();
+        if (!$row) return $this->alert('error', '配置不存在');
+        View::assign('info', $row);
+        return View::fetch('abrotateform');
+    }
+
+    /**
+     * A/B 轮换配置保存（仅允许修改 fixed_rr、prefix、active）
+     */
+    public function abrotate_op()
+    {
+        if (!checkPermission(2)) return json(['code' => -1, 'msg' => '无权限']);
+        $id = input('post.id/d');
+        $row = Db::name('abrotate')->where('id', $id)->find();
+        if (!$row) return json(['code' => -1, 'msg' => '配置不存在']);
+        $fixed_rr = input('post.fixed_rr', null, 'trim');
+        $prefix = input('post.prefix', null, 'trim');
+        $active = input('post.active/d', 1);
+        $update = [
+            'fixed_rr' => $fixed_rr === '' ? null : $fixed_rr,
+            'prefix'   => $prefix !== '' ? $prefix : 'cs',
+            'active'   => $active ? 1 : 0,
+        ];
+        Db::name('abrotate')->where('id', $id)->update($update);
+        return json(['code' => 0, 'msg' => '保存成功']);
+    }
 }

@@ -1,0 +1,100 @@
+{extend name="common/layout" /}
+{block name="title"}编辑 A/B 轮换配置{/block}
+{block name="main"}
+<div class="row">
+	<div class="col-xs-12 center-block" style="float: none;">
+	<div class="panel panel-default">
+	<div class="panel-heading">
+		<h3 class="panel-title">
+			<a href="/dmonitor/abrotate" class="btn btn-sm btn-default pull-right" style="margin-top:-6px"><i class="fa fa-reply fa-fw"></i> 返回列表</a>
+			编辑 A/B 轮换配置
+		</h3>
+	</div>
+	<div class="panel-body">
+		<form id="abrotateForm" class="form-horizontal" role="form">
+			<input type="hidden" name="id" value="{$info.id}" />
+			<div class="form-group">
+				<label class="col-sm-3 control-label">主域名</label>
+				<div class="col-sm-6">
+					<p class="form-control-static">{$info.domain}</p>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">A 槽任务 ID / B 槽任务 ID</label>
+				<div class="col-sm-6">
+					<p class="form-control-static">{$info.task_a_id} / {$info.task_b_id}</p>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">固定业务域名</label>
+				<div class="col-sm-6">
+					<div class="input-group">
+						<input type="text" name="fixed_rr" class="form-control" value="{$info.fixed_rr|default=''}" placeholder="如 pay，留空表示不更新 CNAME" maxlength="64" />
+						<span class="input-group-addon">.{$info.domain}</span>
+					</div>
+					<p class="help-block">轮换执行后，该主机的 CNAME 将指向当日最新随机域名。留空则不维护固定 CNAME。</p>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">随机主机前缀</label>
+				<div class="col-sm-6">
+					<input type="text" name="prefix" class="form-control" value="{$info.prefix|default='cs'}" placeholder="如 cs" maxlength="32" />
+					<p class="help-block">随机主机名格式：前缀 + 6 位随机字符，如 cs3f9a1b</p>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">启用</label>
+				<div class="col-sm-6">
+					<label class="radio-inline">
+						<input type="radio" name="active" value="1" {if $info.active}checked{/if} /> 启用
+					</label>
+					<label class="radio-inline">
+						<input type="radio" name="active" value="0" {if !$info.active}checked{/if} /> 停用
+					</label>
+				</div>
+			</div>
+			<div class="form-group">
+				<div class="col-sm-offset-3 col-sm-6">
+					<button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> 保存</button>
+				</div>
+			</div>
+		</form>
+	</div>
+	</div>
+	</div>
+</div>
+{/block}
+{block name="script"}
+<script src="/static/js/layer/layer.js"></script>
+<script>
+$(function(){
+	$('#abrotateForm').on('submit', function(e){
+		e.preventDefault();
+		var data = {
+			id: $('input[name="id"]').val(),
+			fixed_rr: $('input[name="fixed_rr"]').val().trim(),
+			prefix: ($('input[name="prefix"]').val() || '').trim() || 'cs',
+			active: $('input[name="active"]:checked').val() ? 1 : 0
+		};
+		$.ajax({
+			url: '/dmonitor/abrotate_save',
+			type: 'POST',
+			data: data,
+			dataType: 'json'
+		}).done(function(res){
+			if(res && res.code === 0) {
+				layer.msg('保存成功', {icon: 1, time: 1500}, function(){ window.location.href = '/dmonitor/abrotate'; });
+			} else {
+				layer.msg((res && res.msg) ? res.msg : '保存失败', {icon: 2});
+			}
+		}).fail(function(xhr){
+			var msg = '请求失败';
+			if(xhr.responseJSON && xhr.responseJSON.msg) msg = xhr.responseJSON.msg;
+			else if(xhr.responseText && xhr.responseText.length < 200) msg = xhr.responseText;
+			else if(xhr.status) msg = '请求失败(' + xhr.status + ')';
+			layer.msg(msg, {icon: 2});
+		});
+	});
+});
+</script>
+{/block}

@@ -83,6 +83,10 @@ Route::group(function () {
     Route::post('/dmonitor/task/:action', 'dmonitor/task_op');
     Route::get('/dmonitor/task/:action', 'dmonitor/taskform');
     Route::get('/dmonitor/task', 'dmonitor/task');
+    Route::get('/dmonitor/abrotate', 'dmonitor/abrotate');
+    Route::post('/dmonitor/abrotate/data', 'dmonitor/abrotate_data');
+    Route::get('/dmonitor/abrotate_edit', 'dmonitor/abrotate_edit');
+    Route::post('/dmonitor/abrotate_save', 'dmonitor/abrotate_op');
     Route::post('/dmonitor/clean', 'dmonitor/clean');
 
     Route::any('/optimizeip/opipset', 'optimizeip/opipset');
