@@ -130,7 +130,7 @@ class AbRotateService
     }
 
     /**
-     * 将固定二级域名的 CNAME 记录指向最新随机域名（如 pay.shenlupay.com -> cs3f9a1b.shenlupay.com）
+     * 将固定二级域名的 CNAME 记录指向最新随机域名（如 pay.example.com -> cs3f9a1b.example.com）
      * 若 fixed_rr 未配置或为空则不处理；若尚无 CNAME 则自动创建一条
      *
      * @param \app\lib\DnsInterface $dns
