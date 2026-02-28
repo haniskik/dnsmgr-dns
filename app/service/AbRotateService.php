@@ -130,13 +130,12 @@ class AbRotateService
     }
 
     /**
-     * 将固定二级域名的 CNAME 记录指向最新随机域名（如 pay.example.com -> cs3f9a1b.example.com）
-     * 若 fixed_rr 未配置或为空则不处理；若尚无 CNAME 则自动创建一条
+     * 将固定二级域名的 CNAME 记录指向最新随机域名；若 fixed_rr 未配置或为空则不处理；若尚无 CNAME 则自动创建一条
      *
      * @param \app\lib\DnsInterface $dns
      * @param array $drow 域名行（含 name、type）
-     * @param string $fixedRr 固定主机记录，如 pay
-     * @param string $newRr 本次轮换得到的新主机记录，如 cs3f9a1b
+     * @param string $fixedRr 固定主机记录
+     * @param string $newRr 本次轮换得到的新主机记录
      */
     private function updateFixedCname($dns, $drow, $fixedRr, $newRr)
     {

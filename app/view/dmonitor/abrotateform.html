@@ -29,7 +29,7 @@
 				<label class="col-sm-3 control-label">固定业务域名</label>
 				<div class="col-sm-6">
 					<div class="input-group">
-						<input type="text" name="fixed_rr" class="form-control" value="{$info.fixed_rr|default=''}" placeholder="如 pay，留空表示不更新 CNAME" maxlength="64" />
+						<input type="text" name="fixed_rr" class="form-control" value="{$info.fixed_rr|default=''}" placeholder="主机记录，留空表示不更新 CNAME" maxlength="64" />
 						<span class="input-group-addon">.{$info.domain}</span>
 					</div>
 					<p class="help-block">轮换执行后，该主机的 CNAME 将指向当日最新随机域名。留空则不维护固定 CNAME。</p>
@@ -38,8 +38,8 @@
 			<div class="form-group">
 				<label class="col-sm-3 control-label">随机主机前缀</label>
 				<div class="col-sm-6">
-					<input type="text" name="prefix" class="form-control" value="{$info.prefix|default='cs'}" placeholder="如 cs" maxlength="32" />
-					<p class="help-block">随机主机名格式：前缀 + 6 位随机字符，如 cs3f9a1b</p>
+					<input type="text" name="prefix" class="form-control" value="{$info.prefix|default='cs'}" placeholder="留空默认 cs" maxlength="32" />
+					<p class="help-block">随机主机名格式：前缀 + 6 位随机字符</p>
 				</div>
 			</div>
 			<div class="form-group">
