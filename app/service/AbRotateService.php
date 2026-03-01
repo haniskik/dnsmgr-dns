@@ -38,14 +38,13 @@ class AbRotateService
     }
 
     /**
-     * 执行单个 A/B 轮换
+     * 执行单个 A/B 轮换（支持单对 task_a_id/task_b_id 或多对 task_a_ids/task_b_ids，如 A 组 1-6、B 组 7-12）
      *
      * @param array $row abrotate 表的一行
      * @throws Exception
      */
     private function executeOne(array $row)
     {
-        // 获取域名 + 账号信息
         $drow = Db::name('domain')->alias('A')->join('account B', 'A.aid = B.id')
             ->where('A.id', $row['did'])
             ->field('A.*,B.type,B.config')
@@ -59,72 +58,92 @@ class AbRotateService
             throw new Exception('获取 DNS 模型失败');
         }
 
-        // 当前要操作的槽位（A 或 B），默认为 A
         $slot = $row['current_slot'] === 'B' ? 'B' : 'A';
-
-        // 取对应的容灾任务（dmtask）
-        $taskId = $slot === 'A' ? $row['task_a_id'] : $row['task_b_id'];
-        $task = Db::name('dmtask')->where('id', $taskId)->find();
-        if (!$task) {
-            throw new Exception('容灾任务不存在（task_id=' . $taskId . '）');
-        }
-
-        $recordId = $task['recordid'];
-        $oldRr = $task['rr'];
-
-        // 通过 DNS 接口获取当前记录详情（类型 / 值 / 线路 / TTL 等）
-        $recordInfo = $dns->getDomainRecordInfo($recordId);
-        if (!$recordInfo) {
-            throw new Exception('获取解析记录信息失败：' . $dns->getError());
-        }
-
-        // 生成新的随机主机记录
         $prefix = empty($row['prefix']) ? 'cs' : $row['prefix'];
-        $rand = substr(md5(uniqid('', true)), 0, 6);
-        $newRr = $prefix . $rand;
 
-        // 使用当前记录的类型 / 值 / 线路 / TTL，仅修改主机记录（RR）
-        $type = $recordInfo['Type'];
-        $value = $recordInfo['Value'];
-        $line = $recordInfo['Line'];
-        $ttl = $recordInfo['TTL'];
-        $mx = $recordInfo['MX'] ?? 1;
-        $weight = $recordInfo['Weight'] ?? null;
-        $remark = $recordInfo['Remark'] ?? null;
-
-        $res = $dns->updateDomainRecord($recordId, $newRr, $type, $value, $line, $ttl, $mx, $weight, $remark);
-        if (!$res) {
-            throw new Exception('DNS 更新失败：' . $dns->getError());
+        $taskIds = [];
+        if (!empty($row['task_a_ids']) && !empty($row['task_b_ids'])) {
+            $aIds = array_map('intval', array_filter(explode(',', $row['task_a_ids'])));
+            $bIds = array_map('intval', array_filter(explode(',', $row['task_b_ids'])));
+            $taskIds = $slot === 'A' ? $aIds : $bIds;
+        }
+        if (empty($taskIds)) {
+            $allTasks = Db::name('dmtask')->where('did', $row['did'])->order('id', 'asc')->column('id');
+            if (count($allTasks) === 12) {
+                $aIds = array_slice($allTasks, 0, 6);
+                $bIds = array_slice($allTasks, 6, 6);
+                $taskIds = $slot === 'A' ? $aIds : $bIds;
+            } else {
+                $taskIds = [$slot === 'A' ? $row['task_a_id'] : $row['task_b_id']];
+            }
         }
 
-        // 更新 dmtask 中的 rr 和 recordinfo，保证容灾任务后续使用新的主机记录
-        // recordinfo 字段长度只有 200，这里只保留任务执行所需的最小字段
-        $miniRecordInfo = [
-            'Line' => $line,
-            'TTL'  => $ttl,
-        ];
-        Db::name('dmtask')->where('id', $taskId)->update([
-            'rr' => $newRr,
-            'recordinfo' => json_encode($miniRecordInfo, JSON_UNESCAPED_UNICODE),
-        ]);
+        $firstNewRr = null;
+        $logParts = [];
+        $newRr = null;
+        if (count($taskIds) > 1) {
+            $rand = substr(md5(uniqid('', true)), 0, 6);
+            $newRr = $prefix . $rand;
+        }
 
-        // 切换下次要轮换的槽位
+        foreach ($taskIds as $taskId) {
+            $task = Db::name('dmtask')->where('id', $taskId)->find();
+            if (!$task) {
+                throw new Exception('容灾任务不存在（task_id=' . $taskId . '）');
+            }
+
+            $recordId = $task['recordid'];
+            $oldRr = $task['rr'];
+
+            $recordInfo = $dns->getDomainRecordInfo($recordId);
+            if (!$recordInfo) {
+                throw new Exception('获取解析记录信息失败：' . $dns->getError());
+            }
+
+            if ($newRr === null) {
+                $rand = substr(md5(uniqid('', true) . $taskId), 0, 6);
+                $newRr = $prefix . $rand;
+            }
+
+            $type = $recordInfo['Type'];
+            $value = $recordInfo['Value'];
+            $line = $recordInfo['Line'];
+            $ttl = $recordInfo['TTL'];
+            $mx = $recordInfo['MX'] ?? 1;
+            $weight = $recordInfo['Weight'] ?? null;
+            $remark = $recordInfo['Remark'] ?? null;
+
+            $res = $dns->updateDomainRecord($recordId, $newRr, $type, $value, $line, $ttl, $mx, $weight, $remark);
+            if (!$res) {
+                throw new Exception('DNS 更新失败：' . $dns->getError());
+            }
+
+            $miniRecordInfo = ['Line' => $line, 'TTL' => $ttl];
+            Db::name('dmtask')->where('id', $taskId)->update([
+                'rr' => $newRr,
+                'recordinfo' => json_encode($miniRecordInfo, JSON_UNESCAPED_UNICODE),
+            ]);
+
+            if ($firstNewRr === null) {
+                $firstNewRr = $newRr;
+            }
+            $logParts[] = $oldRr . '->' . $newRr;
+        }
+
         $nextSlot = $slot === 'A' ? 'B' : 'A';
         Db::name('abrotate')->where('id', $row['id'])->update(['current_slot' => $nextSlot]);
 
-        // 固定二级域名：将其 CNAME 指向本次生成的最新随机域名（重新查库确保 fixed_rr 为最新）
         $cfg = Db::name('abrotate')->where('id', $row['id'])->field('fixed_rr')->find();
         $fixedRr = isset($cfg['fixed_rr']) ? trim((string) $cfg['fixed_rr']) : '';
-        $this->updateFixedCname($dns, $drow, $fixedRr, $newRr);
+        if ($firstNewRr !== null) {
+            $this->updateFixedCname($dns, $drow, $fixedRr, $firstNewRr);
+        }
 
-        // 写操作日志
-        $fullDomainOld = $oldRr . '.' . $drow['name'];
-        $fullDomainNew = $newRr . '.' . $drow['name'];
         Db::name('log')->insert([
             'uid' => 0,
             'domain' => $drow['name'],
             'action' => 'A/B 轮换',
-            'data' => "槽{$slot}: {$fullDomainOld} -> {$fullDomainNew}",
+            'data' => '槽' . $slot . ': ' . implode(', ', $logParts),
             'addtime' => date("Y-m-d H:i:s"),
         ]);
     }

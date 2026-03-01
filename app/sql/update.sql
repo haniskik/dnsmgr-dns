@@ -61,8 +61,8 @@ CREATE TABLE IF NOT EXISTS `dnsmgr_optimizeip` (
   KEY `did` (`did`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-ALTER TABLE `dnsmgr_domain`
-ADD COLUMN `remark` varchar(100) DEFAULT NULL;
+-- remark 列多数环境已存在，若需添加请取消下行注释后执行
+-- ALTER TABLE `dnsmgr_domain` ADD COLUMN `remark` varchar(100) DEFAULT NULL;
 
 ALTER TABLE `dnsmgr_dmtask`
 ADD COLUMN `proxy` tinyint(1) NOT NULL DEFAULT 0;
@@ -203,5 +203,6 @@ CREATE TABLE IF NOT EXISTS `dnsmgr_abrotate` (
   KEY `did` (`did`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-ALTER TABLE `dnsmgr_abrotate`
-ADD COLUMN `fixed_rr` varchar(64) DEFAULT NULL COMMENT '固定二级域名主机记录，轮换后 CNAME 指向最新随机域名';
+ALTER TABLE `dnsmgr_abrotate` ADD COLUMN `fixed_rr` varchar(64) DEFAULT NULL COMMENT '固定二级域名主机记录，轮换后 CNAME 指向最新随机域名';
+
+ALTER TABLE `dnsmgr_abrotate` ADD COLUMN `task_a_ids` varchar(255) DEFAULT NULL COMMENT 'A组任务ID逗号分隔，如1,2,3,4,5,6', ADD COLUMN `task_b_ids` varchar(255) DEFAULT NULL COMMENT 'B组任务ID逗号分隔，如7,8,9,10,11,12';

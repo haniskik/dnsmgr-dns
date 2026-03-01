@@ -77,7 +77,7 @@ $(function(){
 			active: $('input[name="active"]:checked').val() ? 1 : 0
 		};
 		$.ajax({
-			url: '/dmonitor/abrotate_save',
+			url: '/dmonitor/abrotate/save',
 			type: 'POST',
 			data: data,
 			dataType: 'json'

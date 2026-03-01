@@ -5,8 +5,81 @@
 	<div class="col-xs-12 center-block" style="float: none;">
 	<div class="panel panel-default panel-intro">
 	<div class="panel-body">
-	<p class="text-muted">每日轮换 A/B 槽随机二级域名，并可将<strong>固定业务域名</strong>的 CNAME 指向最新随机域名。配置需先在数据库添加，此处仅支持编辑固定域名、随机前缀、启用状态。</p>
-	<a href="javascript:;$('#listTable').bootstrapTable('refresh')" class="btn btn-default"><i class="fa fa-refresh"></i> 刷新</a>
+	<p class="text-muted">每日轮换 A/B 槽随机二级域名，并可将<strong>固定业务域名</strong>的 CNAME 指向最新随机域名。选择主域名并填写固定域名即可添加（该主域名下须已存在 2 个容灾任务，将自动作为 A/B 槽）。</p>
+	<button type="button" class="btn btn-primary" id="abrotateShowAddBtn"><i class="fa fa-plus"></i> 添加固定域名</button>
+	<div id="abrotateAddPanel" class="panel panel-primary" style="display:none; margin-top:15px;">
+		<div class="panel-heading"><strong>添加固定域名</strong> <button type="button" class="btn btn-xs btn-default pull-right" id="abrotateHideAddBtn">收起</button></div>
+		<div class="panel-body form-horizontal">
+			<div class="form-group">
+				<label class="col-sm-2 control-label"><span class="text-danger">*</span> 主域名</label>
+				<div class="col-sm-4">
+					<select id="add_did" class="form-control">
+						<option value="">-- 请选择主域名 --</option>
+						{volist name="domains" id="d"}
+						<option value="{$d.id}">{$d.name}</option>
+						{/volist}
+					</select>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-2 control-label"><span class="text-danger">*</span> 固定业务域名</label>
+				<div class="col-sm-4">
+					<input type="text" id="add_fixed_rr" class="form-control" placeholder="如填 pay 表示 pay.主域名 的 CNAME 指向当日随机域名" maxlength="64" required />
+				</div>
+				<div class="col-sm-4 help-block">轮换后该主机的 CNAME 将指向当日最新随机域名</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-2 control-label">随机前缀</label>
+				<div class="col-sm-4">
+					<input type="text" id="add_prefix" class="form-control" value="cs" placeholder="留空默认 cs" maxlength="32" />
+				</div>
+			</div>
+			<div class="form-group">
+				<div class="col-sm-offset-2 col-sm-4">
+					<button type="button" class="btn btn-primary" id="abrotateSubmitAddBtn"><i class="fa fa-save"></i> 保存</button>
+					<button type="button" class="btn btn-default" id="abrotateHideAddBtn2">取消</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div id="abrotateEditPanel" class="panel panel-info" style="display:none; margin-top:15px;">
+		<div class="panel-heading"><strong>编辑固定域名</strong> <button type="button" class="btn btn-xs btn-default pull-right" id="abrotateHideEditBtn">收起</button></div>
+		<div class="panel-body form-horizontal">
+			<input type="hidden" id="edit_id" />
+			<div class="form-group">
+				<label class="col-sm-2 control-label">主域名</label>
+				<div class="col-sm-4"><p class="form-control-static" id="edit_domain"></p></div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-2 control-label">固定业务域名</label>
+				<div class="col-sm-4">
+					<div class="input-group">
+						<input type="text" id="edit_fixed_rr" class="form-control" placeholder="主机记录" maxlength="64" />
+						<span class="input-group-addon" id="edit_domain_suffix"></span>
+					</div>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-2 control-label">随机前缀</label>
+				<div class="col-sm-4">
+					<input type="text" id="edit_prefix" class="form-control" value="cs" maxlength="32" />
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-2 control-label">启用</label>
+				<div class="col-sm-4">
+					<label class="radio-inline"><input type="radio" name="edit_active" value="1" /> 启用</label>
+					<label class="radio-inline"><input type="radio" name="edit_active" value="0" /> 停用</label>
+				</div>
+			</div>
+			<div class="form-group">
+				<div class="col-sm-offset-2 col-sm-4">
+					<button type="button" class="btn btn-primary" id="abrotateSubmitEditBtn"><i class="fa fa-save"></i> 保存</button>
+					<button type="button" class="btn btn-default" id="abrotateHideEditBtn2">取消</button>
+				</div>
+			</div>
+		</div>
+	</div>
 	<table id="listTable"></table>
 	</div>
 	</div>
@@ -37,11 +110,88 @@ $(document).ready(function(){
 				field: 'action',
 				title: '操作',
 				formatter: function(value, row) {
-					var id = row.id || '';
-					return '<a href="/dmonitor/abrotate_edit?id=' + id + '" class="btn btn-primary btn-xs" target="_self"><i class="fa fa-edit"></i> 编辑</a>';
+					var fixed = (row.fixed_rr != null && row.fixed_rr !== '') ? row.fixed_rr : '';
+					var prefix = (row.prefix != null && row.prefix !== '') ? row.prefix : 'cs';
+					return '<a href="javascript:;" class="btn btn-primary btn-xs abrotate-edit-btn" data-id="'+row.id+'" data-domain="'+(row.domain||'')+'" data-fixed-rr="'+fixed+'" data-prefix="'+prefix+'" data-active="'+(row.active||0)+'"><i class="fa fa-edit"></i> 编辑</a>';
 				}
 			}
 		]
+	});
+
+	$('#abrotateShowAddBtn').on('click', function(e){
+		e.preventDefault();
+		e.stopPropagation();
+		$('#abrotateAddPanel').slideDown(200);
+		setTimeout(function(){ $('#abrotateAddPanel')[0].scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 250);
+		return false;
+	});
+	$('#abrotateHideAddBtn, #abrotateHideAddBtn2').on('click', function(e){
+		e.preventDefault();
+		$('#abrotateAddPanel').slideUp(200);
+		return false;
+	});
+
+	$('#abrotateSubmitAddBtn').on('click', function(){
+		var did = $('#add_did').val(), fixed_rr = $('#add_fixed_rr').val().trim();
+		if (!did) { layer.msg('请选择主域名', {icon: 2}); return; }
+		if (!fixed_rr) { layer.msg('请填写固定业务域名', {icon: 2}); return; }
+		var data = {
+			did: did,
+			fixed_rr: fixed_rr,
+			prefix: ($('#add_prefix').val() || '').trim() || 'cs'
+		};
+		$('#abrotateSubmitAddBtn').prop('disabled', true);
+		$.post('/dmonitor/abrotate/save', data, 'json').done(function(res){
+			if (res && res.code === 0) {
+				layer.msg(res.msg, {icon: 1});
+				$('#abrotateAddPanel').hide();
+				$('#listTable').bootstrapTable('refresh');
+			} else {
+				layer.msg((res && res.msg) ? res.msg : '添加失败', {icon: 2});
+			}
+		}).fail(function(xhr){
+			layer.msg(xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : '请求失败', {icon: 2});
+		}).always(function(){ $('#abrotateSubmitAddBtn').prop('disabled', false); });
+	});
+
+	$(document).on('click', '.abrotate-edit-btn', function(e){
+		e.preventDefault();
+		var $t = $(this);
+		$('#edit_id').val($t.data('id'));
+		$('#edit_domain').text($t.data('domain'));
+		$('#edit_domain_suffix').text('.' + ($t.data('domain') || ''));
+		$('#edit_fixed_rr').val($t.data('fixed-rr') || '');
+		$('#edit_prefix').val($t.data('prefix') || 'cs');
+		$('input[name="edit_active"]').val([$t.data('active') == 1 ? '1' : '0']);
+		$('#abrotateAddPanel').slideUp(200);
+		$('#abrotateEditPanel').slideDown(200);
+		setTimeout(function(){ $('#abrotateEditPanel')[0].scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 250);
+	});
+	$('#abrotateHideEditBtn, #abrotateHideEditBtn2').on('click', function(e){
+		e.preventDefault();
+		$('#abrotateEditPanel').slideUp(200);
+	});
+	$('#abrotateSubmitEditBtn').on('click', function(){
+		var id = $('#edit_id').val();
+		if (!id) return;
+		var data = {
+			id: id,
+			fixed_rr: $('#edit_fixed_rr').val().trim(),
+			prefix: ($('#edit_prefix').val() || '').trim() || 'cs',
+			active: $('input[name="edit_active"]:checked').val() ? 1 : 0
+		};
+		$('#abrotateSubmitEditBtn').prop('disabled', true);
+		$.post('/dmonitor/abrotate/save', data, 'json').done(function(res){
+			if (res && res.code === 0) {
+				layer.msg(res.msg, {icon: 1});
+				$('#abrotateEditPanel').slideUp(200);
+				$('#listTable').bootstrapTable('refresh');
+			} else {
+				layer.msg((res && res.msg) ? res.msg : '保存失败', {icon: 2});
+			}
+		}).fail(function(xhr){
+			layer.msg(xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : '请求失败', {icon: 2});
+		}).always(function(){ $('#abrotateSubmitEditBtn').prop('disabled', false); });
 	});
 });
 </script>

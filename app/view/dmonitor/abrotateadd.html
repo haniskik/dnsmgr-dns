@@ -1,0 +1,148 @@
+{extend name="common/layout" /}
+{block name="title"}添加 A/B 轮换配置{/block}
+{block name="main"}
+<div class="row">
+	<div class="col-xs-12 center-block" style="float: none;">
+	<div class="panel panel-default">
+	<div class="panel-heading">
+		<h3 class="panel-title">
+			<a href="/dmonitor/abrotate" class="btn btn-sm btn-default pull-right" style="margin-top:-6px"><i class="fa fa-reply fa-fw"></i> 返回列表</a>
+			添加 A/B 轮换配置
+		</h3>
+	</div>
+	<div class="panel-body">
+		<div id="abrotateAddForm" class="form-horizontal">
+			<div class="form-group">
+				<label class="col-sm-3 control-label"><span class="text-danger">*</span> 主域名</label>
+				<div class="col-sm-6">
+					<select name="did" id="did" class="form-control" required>
+						<option value="">-- 请选择主域名 --</option>
+						{volist name="domains" id="d"}
+						<option value="{$d.id}">{$d.name}</option>
+						{/volist}
+					</select>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label"><span class="text-danger">*</span> A 槽容灾任务</label>
+				<div class="col-sm-6">
+					<select name="task_a_id" id="task_a_id" class="form-control" required>
+						<option value="">-- 请先选择主域名 --</option>
+					</select>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label"><span class="text-danger">*</span> B 槽容灾任务</label>
+				<div class="col-sm-6">
+					<select name="task_b_id" id="task_b_id" class="form-control" required>
+						<option value="">-- 请先选择主域名 --</option>
+					</select>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">固定业务域名</label>
+				<div class="col-sm-6">
+					<input type="text" name="fixed_rr" class="form-control" value="" placeholder="主机记录，留空表示不更新 CNAME" maxlength="64" />
+					<p class="help-block">轮换执行后，该主机的 CNAME 将指向当日最新随机域名。留空则不维护固定 CNAME。</p>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">随机主机前缀</label>
+				<div class="col-sm-6">
+					<input type="text" name="prefix" class="form-control" value="cs" placeholder="留空默认 cs" maxlength="32" />
+					<p class="help-block">随机主机名格式：前缀 + 6 位随机字符</p>
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 control-label">启用</label>
+				<div class="col-sm-6">
+					<label class="radio-inline">
+						<input type="radio" name="active" value="1" checked /> 启用
+					</label>
+					<label class="radio-inline">
+						<input type="radio" name="active" value="0" /> 停用
+					</label>
+				</div>
+			</div>
+			<div class="form-group">
+				<div class="col-sm-offset-3 col-sm-6">
+					<button type="button" id="abrotateAddBtn" class="btn btn-primary"><i class="fa fa-save"></i> 添加</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	</div>
+	</div>
+</div>
+{/block}
+{block name="script"}
+<script src="/static/js/layer/layer.js"></script>
+<script>
+$(function(){
+	function loadTasks() {
+		var did = $('#did').val();
+		$('#task_a_id').html('<option value="">-- 请选择 A 槽任务 --</option>');
+		$('#task_b_id').html('<option value="">-- 请选择 B 槽任务 --</option>');
+		if (!did) return;
+		$.get('/dmonitor/abrotate/tasks', { did: did }, function(res){
+			if (res && res.code === 0 && res.list && res.list.length) {
+				$.each(res.list, function(i, t) {
+					$('#task_a_id').append('<option value="' + t.id + '">' + (t.label || t.rr) + '</option>');
+					$('#task_b_id').append('<option value="' + t.id + '">' + (t.label || t.rr) + '</option>');
+				});
+			} else {
+				$('#task_a_id').html('<option value="">该域名下暂无容灾任务</option>');
+				$('#task_b_id').html('<option value="">该域名下暂无容灾任务</option>');
+			}
+		}, 'json');
+	}
+	$('#did').on('change', loadTasks);
+
+	$('#abrotateAddBtn').on('click', function(e){
+		e.preventDefault();
+		e.stopPropagation();
+		var did = $('#did').val();
+		var task_a_id = $('#task_a_id').val();
+		var task_b_id = $('#task_b_id').val();
+		if (!did || !task_a_id || !task_b_id) {
+			layer.msg('请选择主域名、A 槽任务、B 槽任务', {icon: 2});
+			return false;
+		}
+		if (task_a_id === task_b_id) {
+			layer.msg('A 槽与 B 槽不能选择同一任务', {icon: 2});
+			return false;
+		}
+		var data = {
+			did: did,
+			task_a_id: task_a_id,
+			task_b_id: task_b_id,
+			fixed_rr: $('input[name="fixed_rr"]').val().trim(),
+			prefix: ($('input[name="prefix"]').val() || '').trim() || 'cs',
+			active: $('input[name="active"]:checked').val() ? 1 : 0
+		};
+		$('#abrotateAddBtn').prop('disabled', true);
+		$.ajax({
+			url: '/dmonitor/abrotate/save',
+			type: 'POST',
+			data: data,
+			dataType: 'json'
+		}).done(function(res){
+			if (res && res.code === 0) {
+				layer.msg(res.msg, {icon: 1, time: 1500}, function(){ window.location.href = '/dmonitor/abrotate'; });
+			} else {
+				layer.msg((res && res.msg) ? res.msg : '添加失败', {icon: 2});
+				$('#abrotateAddBtn').prop('disabled', false);
+			}
+		}).fail(function(xhr){
+			var msg = '请求失败';
+			if (xhr.responseJSON && xhr.responseJSON.msg) msg = xhr.responseJSON.msg;
+			else if (xhr.responseText && xhr.responseText.length < 200) msg = xhr.responseText;
+			else if (xhr.status) msg = '请求失败(' + xhr.status + ')';
+			layer.msg(msg, {icon: 2});
+			$('#abrotateAddBtn').prop('disabled', false);
+		});
+		return false;
+	});
+});
+</script>
+{/block}

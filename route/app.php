@@ -85,8 +85,10 @@ Route::group(function () {
     Route::get('/dmonitor/task', 'dmonitor/task');
     Route::get('/dmonitor/abrotate', 'dmonitor/abrotate');
     Route::post('/dmonitor/abrotate/data', 'dmonitor/abrotate_data');
-    Route::get('/dmonitor/abrotate_edit', 'dmonitor/abrotate_edit');
-    Route::post('/dmonitor/abrotate_save', 'dmonitor/abrotate_op');
+    Route::get('/dmonitor/abrotate/add', 'dmonitor/abrotate_add');
+    Route::get('/dmonitor/abrotate/tasks', 'dmonitor/abrotate_tasks');
+    Route::get('/dmonitor/abrotate/edit', 'dmonitor/abrotate_edit');
+    Route::post('/dmonitor/abrotate/save', 'dmonitor/abrotate_op');
     Route::post('/dmonitor/clean', 'dmonitor/clean');
 
     Route::any('/optimizeip/opipset', 'optimizeip/opipset');
