@@ -62,9 +62,11 @@ class AbRotateService
         $prefix = empty($row['prefix']) ? 'cs' : $row['prefix'];
 
         $taskIds = [];
+        $aIds = [];
+        $bIds = [];
         if (!empty($row['task_a_ids']) && !empty($row['task_b_ids'])) {
-            $aIds = array_map('intval', array_filter(explode(',', $row['task_a_ids'])));
-            $bIds = array_map('intval', array_filter(explode(',', $row['task_b_ids'])));
+            $aIds = array_map('intval', array_filter(explode(',', (string) $row['task_a_ids'])));
+            $bIds = array_map('intval', array_filter(explode(',', (string) $row['task_b_ids'])));
             $taskIds = $slot === 'A' ? $aIds : $bIds;
         }
         if (empty($taskIds)) {
@@ -74,7 +76,15 @@ class AbRotateService
                 $bIds = array_slice($allTasks, 6, 6);
                 $taskIds = $slot === 'A' ? $aIds : $bIds;
             } else {
-                $taskIds = [$slot === 'A' ? $row['task_a_id'] : $row['task_b_id']];
+                $singleA = (int) $row['task_a_id'];
+                $singleB = (int) $row['task_b_id'];
+                if ($singleA > 0) {
+                    $aIds = [$singleA];
+                }
+                if ($singleB > 0) {
+                    $bIds = [$singleB];
+                }
+                $taskIds = $slot === 'A' ? $aIds : $bIds;
             }
         }
 
@@ -128,6 +138,55 @@ class AbRotateService
                 $firstNewRr = $newRr;
             }
             $logParts[] = $oldRr . '->' . $newRr;
+        }
+
+        // 根据当前槽位，计算本次需要「启用」和需要「暂停」的任务 ID 列表
+        $enableTaskIds = $taskIds;
+        $disableTaskIds = $slot === 'A' ? $bIds : $aIds;
+
+        // 先暂停另一组解析
+        foreach ($disableTaskIds as $disableId) {
+            $task = Db::name('dmtask')->where('id', $disableId)->find();
+            if (!$task) {
+                continue;
+            }
+            $recordId = $task['recordid'];
+            if (empty($recordId)) {
+                continue;
+            }
+            $res = $dns->setDomainRecordStatus($recordId, '0');
+            if (!$res) {
+                // 不中断整个轮换，只记录错误
+                Db::name('log')->insert([
+                    'uid' => 0,
+                    'domain' => $drow['name'],
+                    'action' => '暂停解析失败',
+                    'data' => 'task_id=' . $disableId . ' recordid=' . $recordId . ' err=' . $dns->getError(),
+                    'addtime' => date("Y-m-d H:i:s"),
+                ]);
+            }
+        }
+
+        // 再启用当前槽位这一组解析
+        foreach ($enableTaskIds as $enableId) {
+            $task = Db::name('dmtask')->where('id', $enableId)->find();
+            if (!$task) {
+                continue;
+            }
+            $recordId = $task['recordid'];
+            if (empty($recordId)) {
+                continue;
+            }
+            $res = $dns->setDomainRecordStatus($recordId, '1');
+            if (!$res) {
+                Db::name('log')->insert([
+                    'uid' => 0,
+                    'domain' => $drow['name'],
+                    'action' => '启用解析失败',
+                    'data' => 'task_id=' . $enableId . ' recordid=' . $recordId . ' err=' . $dns->getError(),
+                    'addtime' => date("Y-m-d H:i:s"),
+                ]);
+            }
         }
 
         $nextSlot = $slot === 'A' ? 'B' : 'A';
