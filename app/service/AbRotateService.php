@@ -71,9 +71,24 @@ class AbRotateService
         }
         if (empty($taskIds)) {
             $allTasks = Db::name('dmtask')->where('did', $row['did'])->order('id', 'asc')->column('id');
-            if (count($allTasks) === 12) {
+            $cnt = count($allTasks);
+            // 兼容：
+            // - 12 条：1,2,3,4,5,6 为 A 组；7,8,9,10,11,12 为 B 组
+            // - 14 条：1,2,3,4,5,6,13 为 A 组；7,8,9,10,11,12,14 为 B 组
+            if ($cnt === 12) {
                 $aIds = array_slice($allTasks, 0, 6);
                 $bIds = array_slice($allTasks, 6, 6);
+                $taskIds = $slot === 'A' ? $aIds : $bIds;
+            } elseif ($cnt === 14) {
+                // allTasks 已按 id 升序：索引 0..13 对应 id 1..14
+                $aIds = array_merge(
+                    array_slice($allTasks, 0, 6),   // 1..6
+                    [$allTasks[12]]                 // 13
+                );
+                $bIds = array_merge(
+                    array_slice($allTasks, 6, 6),   // 7..12
+                    [$allTasks[13]]                 // 14
+                );
                 $taskIds = $slot === 'A' ? $aIds : $bIds;
             } else {
                 $singleA = (int) $row['task_a_id'];
